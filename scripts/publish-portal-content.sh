@@ -90,7 +90,7 @@ function portal_branding_image_post() {
         return
     fi
 
-    # get the Content-Type of the image from the image path if the file exists  
+    # get the Content-Type of the image from the image path if the file exists
     local full_path="./products/$image_name/$image_path"
 
     if [ -f "$full_path" ]; then
@@ -101,13 +101,13 @@ function portal_branding_image_post() {
     fi
 
     local content_type=$(file --mime-type -b "$full_path")
- 
+
     local response=$(curl -s --request POST \
         --url "$PORTAL_URL/attachments/branding/$portal_id?name=$encoded_param_value" \
         --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
         --header "Content-Type: $content_type" \
         --data-binary "@$full_path")
-    
+
     log_message $INFO "Response: $response"
 
     branding_image_id=$(echo "$response" | jq -r .id)
@@ -147,12 +147,12 @@ function portal_product_doc_image_post() {
         --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
         --header "Content-Type: $content_type" \
         --data-binary "@$full_path")
-  
+
     log_message $INFO "Done uploading documentation image."
     log_message $DEBUG "Exit portal_product_doc_image_post"
 }
 
-function portal_branding_attachments_get() {   
+function portal_branding_attachments_get() {
     log_message $DEBUG "Enter portal_branding_attachments_get"
     local portal_id=$1
 
@@ -169,7 +169,7 @@ function portal_branding_attachments_get() {
     log_message $DEBUG "Exit portal_branding_attachments_get"
 }
 
-function portal_product_documentation_attachments_get() {   
+function portal_product_documentation_attachments_get() {
     log_message $DEBUG "Enter portal_product_documentation_attachments_get"
     local product_id=$1
 
@@ -211,6 +211,8 @@ function load_and_process_product_manifest_content_metadata() {
     local file=$1
     local product_name=$2
 
+    portal_product_get_id "$product_name"
+
     log_message $INFO "Loading product manifest: $file ..."
 
     if [ ! -f "$file" ]; then
@@ -248,10 +250,10 @@ function load_and_process_product_manifest_content_metadata() {
         log_message $INFO "Parent: $parent"
         log_message $INFO "Name: $name"
         log_message $INFO "Slug: $slug"
-        log_message $INFO "ContentUrl: $contentUrl"              
+        log_message $INFO "ContentUrl: $contentUrl"
         log_message $INFO "****************************************************************"
 
-        if [ "${type,,}" == "apiurl" ]; then        
+        if [ "${type,,}" == "apiurl" ]; then
             portal_product_toc_api_reference_upsert "$name" "$slug" $order "$contentUrl" "$product_toc_id" "$type"
         else
             portal_product_toc_markdown_upsert "$name" "$slug" $order "$product_toc_id" "$type"
@@ -291,7 +293,7 @@ function load_and_process_product_manifest_content_metadata() {
             log_message $DEBUG "Markdown/HTML Content: $markdownContent"
             portal_product_document_markdown_patch "$markdownContent" "$type"
         fi
-        
+
         log_message $DEBUG "Setting parent_toc_id to $product_toc_id"
         parent_toc_id=$product_toc_id
 
@@ -308,14 +310,14 @@ function load_and_process_product_manifest_content_metadata() {
             local child_order=$(jq -r ".[$j].order" <<< "$children")
             local child_name=$(jq -r ".[$j].name" <<< "$children")
             local child_slug=$(jq -r ".[$j].slug" <<< "$children")
-            local child_contentUrl=$(jq -r ".[$j].contentUrl" <<< "$children")               
+            local child_contentUrl=$(jq -r ".[$j].contentUrl" <<< "$children")
 
             if [ "$child_type" == "apiUrl" ]; then
                 log_message $DEBUG "Processing API reference for : $child_name, $child_slug, $child_order, $child_contentUrl, $parent_toc_id"
                 portal_product_toc_api_reference_upsert "$child_name" "$child_slug" $child_order "$child_contentUrl" "$parent_toc_id"
             else
                 log_message $DEBUG "Processing markdown for : $child_name, $child_slug, $child_order, $parent_toc_id", "$child_type"
-                portal_product_toc_markdown_upsert "$child_name" "$child_slug" $child_order "$parent_toc_id" "$child_type" 
+                portal_product_toc_markdown_upsert "$child_name" "$child_slug" $child_order "$parent_toc_id" "$child_type"
                 log_message $INFO "Document ID for CHILD: $document_id"
 
                 local child_markdown_file="./products/$product_name/$child_contentUrl"
@@ -329,7 +331,7 @@ function load_and_process_product_manifest_content_metadata() {
                 log_message $INFO "Checking for attachments to replace in nested markdown/html content..."
                 log_message $DEBUG "Existing attachments: $existing_attachments"
                 IFS=$'\n' # set the internal field separator to newline
-    
+
                 attachments=($(jq -r '.[] | "\(.id)\t\(.name)"' <<< "$existing_attachments"))
 
                 for attachment in "${attachments[@]}"; do
@@ -342,14 +344,14 @@ function load_and_process_product_manifest_content_metadata() {
 
                     if [[ "$child_type" == "html" ]]; then
                         # Replace image src in HTML fragments
-                        markdownContent=$(sed -E "s#src=[\"']\.\/images\/embedded\/${escaped_attachment_name}[\"']#src=\"${attachment_url}\"#g" <<< "$markdownChildContent")
+                        markdownChildContent=$(sed -E "s#src=[\"']\.\/images\/embedded\/${escaped_attachment_name}[\"']#src=\"${attachment_url}\"#g" <<< "$markdownChildContent")
                     else
                         # Replace markdown image path
-                        markdownContent=$(sed -E "s#\!\[$escaped_attachment_name\]\(\.\/images\/embedded\/$escaped_attachment_name\)#\!\[$escaped_attachment_name\]\($escaped_attachment_url\)#g" <<< "$markdownChildContent")
+                        markdownChildContent=$(sed -E "s#\!\[$escaped_attachment_name\]\(\.\/images\/embedded\/$escaped_attachment_name\)#\!\[$escaped_attachment_name\]\($escaped_attachment_url\)#g" <<< "$markdownChildContent")
                     fi
-                done                
+                done
 
-                log_message $INFO "Attachment replacement in nested content done."            
+                log_message $INFO "Done processing contentMetadata from manifest for $product_name."
                 log_message $INFO "Updating markdown/html content for $child_name"
                 log_message $DEBUG "Markdown Content: $markdownChildContent"
                 portal_product_document_markdown_patch "$markdownChildContent" "$child_type"
@@ -375,11 +377,11 @@ function portal_portal_get_id() {
     log_message $DEBUG "Exit portal_portal_get_id"
 }
 
-function portal_product_get_id() { 
+function portal_product_get_id() {
     log_message $DEBUG "Enter portal_product_get_id"
     local product_name=$1
     local encoded_product_name=$(printf '%s' "$product_name" | od -An -tx1 | tr ' ' % | tr -d '\n')
-    
+
     log_message $INFO "Searching for product: $product_name in portal $portal_id ..."
     local response=$(curl -s --request GET \
         --url "$PORTAL_URL/portals/$portal_id/products?name=$encoded_product_name" \
@@ -394,7 +396,7 @@ function portal_product_get_id() {
 function portal_product_upsert() {
     log_message $DEBUG "Enter portal_product_upsert"
     local file=$1
-    local product_name=$2    
+    local product_name=$2
     product_id=""
     section_id=""
     auto_publish=""
@@ -442,7 +444,7 @@ function portal_product_upsert() {
             --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
             --header "Content-Type: application/json" \
             --data "{
-                \"branding\": { 
+                \"branding\": {
                     \"logoId\": \"$branding_image_id\"
                 }
             }")
@@ -458,7 +460,7 @@ function portal_product_upsert() {
             --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
             --header "Content-Type: application/json" \
             --data "{
-                \"branding\": { 
+                \"branding\": {
                     \"logoDarkModeId\": \"$branding_image_id\"
                 }
             }")
@@ -564,7 +566,7 @@ function portal_product_toc_get_id() {
         product_toc_id=""
         product_toc_slug=""
         log_message $INFO "No product TOC ID found."
-    fi  
+    fi
 
     log_message $INFO "Done fetching product TOC ID."
     log_message $DEBUG "Exit portal_product_toc_get_id"
@@ -709,7 +711,7 @@ function portal_product_toc_markdown_post() {
         --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
         --header "Content-Type: application/json" \
         --data "{
-            \"type\": \"new\",        
+            \"type\": \"new\",
             \"title\": \"$markdown_title\",
             \"slug\": \"$markdown_slug\",
             \"order\": $content_order,
@@ -800,7 +802,7 @@ function portal_product_document_markdown_patch() {
             \"content\": $escaped_contents,
             \"type\": \"$type\"
         }")
-    
+
     log_message $DEBUG "Document patch response: $response"
     log_message $INFO "Done updating $type document."
     log_message $DEBUG "Exit portal_product_document_markdown_patch"
@@ -822,9 +824,9 @@ function portal_product_publish() {
         --url "$PORTAL_URL/products/$product_id/published-content?preview=$preview" \
         --header "Authorization: Bearer $SWAGGERHUB_API_KEY" \
         --header "Content-Type: application/json")
-    
+
     publish_response_check "$response"
-    
+
     log_message $INFO "Done publishing product."
     log_message $DEBUG "Exit portal_product_publish"
 }
